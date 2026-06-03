@@ -196,9 +196,97 @@
         .insight-title { font-size: 12px; font-weight: 700; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
 
         .footer { text-align: center; font-size: 11px; color: #334155; padding: 24px 0 16px; }
+
+        /* CSV Upload Button */
+        .upload-btn {
+            background: rgba(134,188,37,0.12); color: #86BC25;
+            border: 1px solid rgba(134,188,37,0.35); padding: 7px 14px;
+            border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 7px; transition: all 0.2s;
+        }
+        .upload-btn:hover { background: rgba(134,188,37,0.22); }
+
+        /* Modal overlay */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); z-index: 999;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+            padding: 28px; width: 560px; max-width: 95vw; position: relative;
+        }
+        .modal-title { font-size: 16px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+        .modal-sub { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+        .modal-close {
+            position: absolute; top: 16px; right: 16px; background: none;
+            border: none; color: #64748b; font-size: 20px; cursor: pointer; line-height: 1;
+        }
+        .modal-close:hover { color: #f1f5f9; }
+        .drop-zone {
+            border: 2px dashed #334155; border-radius: 10px; padding: 28px;
+            text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 16px;
+        }
+        .drop-zone:hover, .drop-zone.dragover { border-color: #86BC25; background: rgba(134,188,37,0.05); }
+        .drop-zone-icon { font-size: 28px; margin-bottom: 8px; }
+        .drop-zone-text { font-size: 13px; color: #64748b; }
+        .drop-zone-text span { color: #86BC25; font-weight: 700; cursor: pointer; }
+        .modal-divider { text-align: center; font-size: 12px; color: #475569; margin: 12px 0; }
+        .csv-textarea {
+            width: 100%; background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+            padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace;
+            resize: vertical; min-height: 90px;
+        }
+        .csv-textarea:focus { outline: none; border-color: #86BC25; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+        .btn-sample {
+            background: #334155; color: #94a3b8; border: none; padding: 9px 16px;
+            border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 600;
+        }
+        .btn-sample:hover { background: #475569; color: #f1f5f9; }
+        .btn-analyze {
+            flex: 1; background: linear-gradient(135deg, #86BC25, #5a8a1a);
+            color: white; border: none; padding: 9px 16px; border-radius: 8px;
+            font-size: 13px; cursor: pointer; font-weight: 700;
+        }
+        .btn-analyze:hover { opacity: 0.9; }
+
+        /* Loaded banner */
+        .loaded-banner {
+            display: none; background: rgba(134,188,37,0.1);
+            border: 1px solid rgba(134,188,37,0.3); border-radius: 10px;
+            padding: 12px 18px; margin-bottom: 24px;
+            font-size: 13px; color: #86BC25; align-items: center; gap: 10px;
+        }
+        .loaded-banner.show { display: flex; }
     </style>
 </head>
 <body>
+
+<!-- CSV UPLOAD MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div class="modal-title">&#128194; Upload Warranty Claims Data</div>
+        <div class="modal-sub">Upload a CSV file or paste claims data below. The AI model will re-analyze accrual risk instantly.</div>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="handleDrop(event)">
+            <div class="drop-zone-icon">&#128196;</div>
+            <div class="drop-zone-text">Drag &amp; drop your CSV here, or <span>browse files</span></div>
+            <div style="font-size:11px;color:#475569;margin-top:4px;">Expected columns: ClaimID, VehicleModel, ModelYear, Component, ClaimDate, ClaimAmount, Region</div>
+        </div>
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleFileSelect(event)">
+        <div class="modal-divider">— or paste CSV directly —</div>
+        <textarea class="csv-textarea" id="csvTextarea" placeholder="ClaimID,VehicleModel,ModelYear,Component,ClaimDate,ClaimAmount,Region&#10;C001,Mustang Mach-E,2022,Battery Thermal,2024-03-15,2850,Southeast&#10;..."></textarea>
+        <div class="modal-actions">
+            <button class="btn-sample" onclick="loadSampleData()">&#9654; Load Sample Data</button>
+            <button class="btn-analyze" onclick="analyzeCSV()">&#128200; Analyze Claims</button>
+        </div>
+    </div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -223,11 +311,18 @@
             <option value="ttm">Trailing 12M</option>
         </select>
         <div class="deloitte-tag">D.AI Hackathon &rsquo;26 &bull; <span>Deloitte</span></div>
+        <button class="upload-btn" onclick="openModal()">&#128194; Upload Claims CSV</button>
         <div class="live-badge"><div class="live-dot"></div> Live Model</div>
     </div>
 </nav>
 
 <div class="main">
+
+    <!-- Loaded Banner -->
+    <div class="loaded-banner" id="loadedBanner">
+        <span style="font-size:18px;">&#10003;</span>
+        <span id="loadedText">Claims data loaded and analyzed.</span>
+    </div>
 
     <!-- AI Insight Banner -->
     <div class="insight-banner">
@@ -572,6 +667,100 @@ const modelData = {
     camry:     { accuracy:'97.3%', accrual:'$0.9B',  issues:'1',  saving:'27%', bar1:97, bar2:45, bar3:10, bar4:27, label:'Camry (MY21-23)' },
     mache:     { accuracy:'88.4%', accrual:'$0.7B',  issues:'4',  saving:'14%', bar1:88, bar2:38, bar3:60, bar4:14, label:'Mustang Mach-E' },
 };
+
+// ── CSV UPLOAD ────────────────────────────────────────────────────────────────
+const SAMPLE_CSV = `ClaimID,VehicleModel,ModelYear,Component,ClaimDate,ClaimAmount,Region
+C001,Mustang Mach-E,2022,Battery Thermal,2024-01-08,2850,Southeast
+C002,F-150,2022,Transmission,2024-01-12,1950,Midwest
+C003,Mustang Mach-E,2022,Battery Thermal,2024-01-15,3100,West Coast
+C004,Silverado 1500,2023,ADAS Sensor,2024-01-18,1200,Northeast
+C005,Camry,2021,Coolant Seal,2024-01-22,680,Southeast
+C006,F-150,2023,Transmission,2024-01-25,2100,Mountain West
+C007,Mustang Mach-E,2022,Battery Thermal,2024-02-02,2950,Southeast
+C008,F-150,2022,Infotainment,2024-02-05,450,Midwest
+C009,Silverado 1500,2022,ADAS Sensor,2024-02-08,1350,West Coast
+C010,Mustang Mach-E,2021,Battery Thermal,2024-02-11,3200,Southwest
+C011,F-150,2022,Transmission,2024-02-14,1875,Mountain West
+C012,Camry,2021,Coolant Seal,2024-02-18,720,Northeast
+C013,Mustang Mach-E,2022,EV Charging Port,2024-02-22,980,Southeast
+C014,Silverado 1500,2023,Brake Sensor,2024-02-25,550,Midwest
+C015,F-150,2023,Transmission,2024-03-01,2250,Mountain West
+C016,Mustang Mach-E,2022,Battery Thermal,2024-03-04,2750,West Coast
+C017,Camry,2022,Coolant Seal,2024-03-08,690,Southeast
+C018,F-150,2022,Transmission,2024-03-12,1980,Midwest
+C019,Silverado 1500,2023,ADAS Sensor,2024-03-15,1420,Northeast
+C020,Mustang Mach-E,2022,Battery Thermal,2024-03-18,3050,Southeast
+C021,F-150,2023,Infotainment,2024-03-20,480,West Coast
+C022,Silverado 1500,2022,ADAS Sensor,2024-03-22,1180,Midwest
+C023,Mustang Mach-E,2021,Battery Thermal,2024-03-25,2900,Southwest
+C024,Camry,2021,Powertrain,2024-03-28,1100,Southeast
+C025,F-150,2022,Transmission,2024-04-02,2050,Mountain West`;
+
+function openModal()  { document.getElementById('modalOverlay').classList.add('open'); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function loadSampleData() {
+    document.getElementById('csvTextarea').value = SAMPLE_CSV;
+}
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => { document.getElementById('csvTextarea').value = e.target.result; };
+    reader.readAsText(file);
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    document.getElementById('dropZone').classList.remove('dragover');
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => { document.getElementById('csvTextarea').value = e.target.result; };
+    reader.readAsText(file);
+}
+
+function analyzeCSV() {
+    const raw = document.getElementById('csvTextarea').value.trim();
+    if (!raw) { alert('Please paste CSV data or load the sample first.'); return; }
+
+    const lines = raw.split('\n').filter(l => l.trim());
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const modelIdx  = headers.indexOf('vehiclemodel');
+    const compIdx   = headers.indexOf('component');
+    const amtIdx    = headers.indexOf('claimamount');
+    const regionIdx = headers.indexOf('region');
+
+    const rows = lines.slice(1).map(l => l.split(','));
+    const totalClaims  = rows.length;
+    const totalCost    = rows.reduce((s, r) => s + (parseFloat(r[amtIdx]) || 0), 0);
+    const models       = [...new Set(rows.map(r => (r[modelIdx]||'').trim()).filter(Boolean))];
+    const regions      = [...new Set(rows.map(r => (r[regionIdx]||'').trim()).filter(Boolean))];
+
+    // Component frequency
+    const compCount = {};
+    rows.forEach(r => {
+        const c = (r[compIdx]||'').trim();
+        if (c) compCount[c] = (compCount[c] || 0) + 1;
+    });
+    const topComp = Object.entries(compCount).sort((a,b) => b[1]-a[1])[0];
+
+    closeModal();
+
+    // Show loaded banner
+    const banner = document.getElementById('loadedBanner');
+    banner.classList.add('show');
+    document.getElementById('loadedText').innerHTML =
+        `<strong>${totalClaims.toLocaleString()} claims loaded</strong> &bull;
+         ${models.length} vehicle models &bull;
+         ${regions.length} regions &bull;
+         Total claim value: <strong>$${(totalCost/1000).toFixed(0)}K</strong> &bull;
+         Top issue: <strong>${topComp ? topComp[0] + ' (' + topComp[1] + ' claims)' : 'N/A'}</strong>`;
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 // ── SCENARIO MODELER ──────────────────────────────────────────────────────────
 const scenarioSteps = [
