@@ -24,11 +24,11 @@
         .logo { display: flex; align-items: center; gap: 12px; }
         .logo-icon {
             width: 36px; height: 36px;
-            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+            background: linear-gradient(135deg, #86BC25, #5a8a1a);
             border-radius: 9px;
             display: flex; align-items: center; justify-content: center;
             font-weight: 900; color: white; font-size: 13px;
-            box-shadow: 0 0 16px rgba(59,130,246,0.4);
+            box-shadow: 0 0 16px rgba(134,188,37,0.4);
         }
         .logo-text { font-size: 18px; font-weight: 700; color: #f1f5f9; }
         .logo-sub { font-size: 11px; color: #64748b; margin-top: 1px; }
@@ -39,14 +39,20 @@
         }
         .nav-select:focus { outline: none; border-color: #3b82f6; }
         .live-badge {
-            background: #064e3b; color: #34d399;
+            background: rgba(134,188,37,0.15); color: #86BC25;
             padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
             display: flex; align-items: center; gap: 6px;
+            border: 1px solid rgba(134,188,37,0.3);
         }
         .live-dot {
-            width: 7px; height: 7px; background: #34d399; border-radius: 50%;
+            width: 7px; height: 7px; background: #86BC25; border-radius: 50%;
             animation: pulse 2s infinite;
         }
+        .deloitte-tag {
+            font-size: 11px; color: #64748b; border-left: 1px solid #334155;
+            padding-left: 12px; letter-spacing: 0.05em;
+        }
+        .deloitte-tag span { color: #86BC25; font-weight: 700; }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
         .main { padding: 28px; max-width: 1440px; margin: 0 auto; }
@@ -144,11 +150,24 @@
         .chat-input:focus { outline: none; border-color: #3b82f6; }
         .chat-input::placeholder { color: #475569; }
         .chat-send {
-            background: linear-gradient(135deg, #3b82f6, #06b6d4); color: white;
+            background: linear-gradient(135deg, #86BC25, #5a8a1a); color: white;
             border: none; padding: 9px 18px; border-radius: 9px; cursor: pointer;
             font-size: 13px; font-weight: 700;
         }
         .chat-send:hover { opacity: 0.9; }
+        /* Scenario slider */
+        .scenario-card { background: #1e293b; border-radius: 14px; padding: 22px; border: 1px solid #334155; margin-bottom: 24px; }
+        .scenario-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-top: 20px; }
+        .scenario-stat { background: #0f172a; border-radius: 10px; padding: 18px; text-align: center; border: 1px solid #263148; }
+        .scenario-stat-label { font-size: 11px; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+        .scenario-stat-value { font-size: 26px; font-weight: 800; transition: all 0.3s ease; }
+        .slider-row { display: flex; align-items: center; gap: 16px; margin-top: 4px; }
+        .slider-label { font-size: 13px; color: #94a3b8; min-width: 220px; }
+        input[type=range] { flex: 1; accent-color: #86BC25; height: 6px; cursor: pointer; }
+        .slider-count { font-size: 28px; font-weight: 800; color: #86BC25; min-width: 48px; text-align: center; }
+        .issue-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+        .issue-pill { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: #263148; color: #64748b; transition: all 0.3s; border: 1px solid #334155; }
+        .issue-pill.resolved { background: rgba(134,188,37,0.15); color: #86BC25; border-color: rgba(134,188,37,0.4); text-decoration: line-through; }
         .suggested-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
         .chip {
             background: #1e293b; border: 1px solid #334155; color: #94a3b8;
@@ -203,6 +222,7 @@
             <option value="q4">Q4 2023</option>
             <option value="ttm">Trailing 12M</option>
         </select>
+        <div class="deloitte-tag">D.AI Hackathon &rsquo;26 &bull; <span>Deloitte</span></div>
         <div class="live-badge"><div class="live-dot"></div> Live Model</div>
     </div>
 </nav>
@@ -362,6 +382,48 @@
 
 </div>
 
+    <!-- Scenario Modeler -->
+    <div class="scenario-card">
+        <div class="card-header">
+            <div class="card-title">Scenario Modeler &mdash; What if we fix these issues?</div>
+            <span class="badge badge-green">Interactive</span>
+        </div>
+        <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Drag the slider to simulate resolving flagged quality issues and see the projected accrual and cost impact in real time.</p>
+        <div class="slider-row">
+            <div class="slider-label">Issues resolved <span style="color:#94a3b8;">(of 7 flagged)</span></div>
+            <input type="range" id="issueSlider" min="0" max="7" value="0" oninput="updateScenario(this.value)">
+            <div class="slider-count" id="sliderCount">0</div>
+        </div>
+        <div class="issue-pills" id="issuePills">
+            <span class="issue-pill" id="pill0">Battery Thermal (Mach-E)</span>
+            <span class="issue-pill" id="pill1">Transmission Downshift (F-150)</span>
+            <span class="issue-pill" id="pill2">ADAS Calibration (Silverado)</span>
+            <span class="issue-pill" id="pill3">Coolant Seal (Camry)</span>
+            <span class="issue-pill" id="pill4">Infotainment (F-150)</span>
+            <span class="issue-pill" id="pill5">Brake Sensor (Silverado)</span>
+            <span class="issue-pill" id="pill6">EV Charging Port (Mach-E)</span>
+        </div>
+        <div class="scenario-grid">
+            <div class="scenario-stat">
+                <div class="scenario-stat-label">Accrual Reduction</div>
+                <div class="scenario-stat-value" id="scenAccrual" style="color:#86BC25;">$0</div>
+                <div style="font-size:11px;color:#475569;margin-top:6px;">vs. unresolved baseline</div>
+            </div>
+            <div class="scenario-stat">
+                <div class="scenario-stat-label">Annual Cost Savings</div>
+                <div class="scenario-stat-value" id="scenSaving" style="color:#10b981;">$0</div>
+                <div style="font-size:11px;color:#475569;margin-top:6px;">direct warranty spend avoided</div>
+            </div>
+            <div class="scenario-stat">
+                <div class="scenario-stat-label">Risk Exposure Remaining</div>
+                <div class="scenario-stat-value" id="scenRisk" style="color:#ef4444;">$1.34B</div>
+                <div style="font-size:11px;color:#475569;margin-top:6px;">unresolved accrual risk</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
 <div class="footer">
     WarrantyIQ &mdash; Hackathon Prototype &mdash; Built with GenAI<br>
     <span style="font-size:10px;">
@@ -510,6 +572,34 @@ const modelData = {
     camry:     { accuracy:'97.3%', accrual:'$0.9B',  issues:'1',  saving:'27%', bar1:97, bar2:45, bar3:10, bar4:27, label:'Camry (MY21-23)' },
     mache:     { accuracy:'88.4%', accrual:'$0.7B',  issues:'4',  saving:'14%', bar1:88, bar2:38, bar3:60, bar4:14, label:'Mustang Mach-E' },
 };
+
+// ── SCENARIO MODELER ──────────────────────────────────────────────────────────
+const scenarioSteps = [
+    { accrual: '$0',     saving: '$0',     risk: '$1.34B' },
+    { accrual: '$190M',  saving: '$47M',   risk: '$1.15B' },
+    { accrual: '$420M',  saving: '$95M',   risk: '$920M'  },
+    { accrual: '$620M',  saving: '$142M',  risk: '$720M'  },
+    { accrual: '$810M',  saving: '$188M',  risk: '$530M'  },
+    { accrual: '$970M',  saving: '$224M',  risk: '$370M'  },
+    { accrual: '$1.12B', saving: '$258M',  risk: '$220M'  },
+    { accrual: '$1.34B', saving: '$308M',  risk: '$0'     },
+];
+
+function updateScenario(val) {
+    val = parseInt(val);
+    document.getElementById('sliderCount').textContent = val;
+    const d = scenarioSteps[val];
+    document.getElementById('scenAccrual').textContent = d.accrual;
+    document.getElementById('scenSaving').textContent  = d.saving;
+    document.getElementById('scenRisk').textContent    = d.risk;
+    // Update risk colour — green when fully resolved
+    document.getElementById('scenRisk').style.color = val === 7 ? '#86BC25' : '#ef4444';
+    // Light up pills
+    for (let i = 0; i < 7; i++) {
+        const pill = document.getElementById('pill' + i);
+        if (pill) pill.className = 'issue-pill' + (i < val ? ' resolved' : '');
+    }
+}
 
 function switchModel() {
     const key = document.getElementById('vehicleModel').value;
