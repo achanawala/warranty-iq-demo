@@ -197,6 +197,42 @@
 
         .footer { text-align: center; font-size: 11px; color: #334155; padding: 24px 0 16px; }
 
+        /* Connect API Button */
+        .connect-btn {
+            background: transparent; color: #64748b;
+            border: 1px solid #334155; padding: 7px 14px;
+            border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 7px; transition: all 0.2s;
+        }
+        .connect-btn:hover { border-color: #86BC25; color: #86BC25; }
+        .connect-btn.connected { color: #86BC25; border-color: rgba(134,188,37,0.4); background: rgba(134,188,37,0.08); }
+
+        /* API Key Modal */
+        .api-modal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); z-index: 1000;
+            align-items: center; justify-content: center;
+        }
+        .api-modal.open { display: flex; }
+        .api-modal-box {
+            background: #1e293b; border: 1px solid #334155; border-radius: 14px;
+            padding: 28px; width: 460px; max-width: 95vw; position: relative;
+        }
+        .api-key-input {
+            width: 100%; background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+            padding: 10px 14px; border-radius: 8px; font-size: 13px; font-family: monospace;
+            margin: 12px 0;
+        }
+        .api-key-input:focus { outline: none; border-color: #86BC25; }
+        .btn-connect-save {
+            width: 100%; background: linear-gradient(135deg, #86BC25, #5a8a1a);
+            color: white; border: none; padding: 10px; border-radius: 8px;
+            font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px;
+        }
+        .btn-connect-save:hover { opacity: 0.9; }
+        .api-note { font-size: 11px; color: #475569; margin-top: 10px; line-height: 1.5; }
+        .api-note a { color: #86BC25; }
+
         /* CSV Upload Button */
         .upload-btn {
             background: rgba(134,188,37,0.12); color: #86BC25;
@@ -288,6 +324,24 @@
     </div>
 </div>
 
+<!-- API KEY MODAL -->
+<div class="api-modal" id="apiModal" onclick="if(event.target===this)closeApiModal()">
+    <div class="api-modal-box">
+        <button class="modal-close" onclick="closeApiModal()">&times;</button>
+        <div class="modal-title">&#128273; Connect Claude API</div>
+        <div class="modal-sub" style="font-size:13px;color:#64748b;margin-top:6px;">
+            Enter your Anthropic API key to enable live AI analysis of your warranty data.
+        </div>
+        <input class="api-key-input" id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." />
+        <button class="btn-connect-save" onclick="saveApiKey()">Connect &amp; Save</button>
+        <div id="apiStatus" style="font-size:12px;margin-top:8px;min-height:18px;"></div>
+        <div class="api-note">
+            Your key is stored locally in your browser only — never sent anywhere except Anthropic.<br>
+            Don't have a key? Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+        </div>
+    </div>
+</div>
+
 <!-- NAV -->
 <nav>
     <div class="logo">
@@ -311,6 +365,7 @@
             <option value="ttm">Trailing 12M</option>
         </select>
         <div class="deloitte-tag">D.AI Hackathon &rsquo;26 &bull; <span>Deloitte</span></div>
+        <button class="connect-btn" id="connectBtn" onclick="openApiModal()">&#128273; Connect Claude API</button>
         <button class="upload-btn" onclick="openModal()">&#128194; Upload Claims CSV</button>
         <div class="live-badge"><div class="live-dot"></div> Live Model</div>
     </div>
@@ -668,6 +723,62 @@ const modelData = {
     mache:     { accuracy:'88.4%', accrual:'$0.7B',  issues:'4',  saving:'14%', bar1:88, bar2:38, bar3:60, bar4:14, label:'Mustang Mach-E' },
 };
 
+// ── CLAUDE API ────────────────────────────────────────────────────────────────
+let claudeApiKey = localStorage.getItem('warrantyiq_api_key') || '';
+let loadedCsvContext = '';
+
+function openApiModal() {
+    document.getElementById('apiKeyInput').value = claudeApiKey;
+    document.getElementById('apiStatus').textContent = '';
+    document.getElementById('apiModal').classList.add('open');
+}
+function closeApiModal() { document.getElementById('apiModal').classList.remove('open'); }
+
+function saveApiKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key.startsWith('sk-')) {
+        document.getElementById('apiStatus').innerHTML = '<span style="color:#ef4444">⚠ Key should start with "sk-". Check and try again.</span>';
+        return;
+    }
+    claudeApiKey = key;
+    localStorage.setItem('warrantyiq_api_key', key);
+    updateConnectBtn();
+    document.getElementById('apiStatus').innerHTML = '<span style="color:#86BC25">✓ Connected! Claude API is live.</span>';
+    setTimeout(closeApiModal, 1200);
+}
+
+function updateConnectBtn() {
+    const btn = document.getElementById('connectBtn');
+    if (claudeApiKey) {
+        btn.textContent = '✓ Claude Connected';
+        btn.classList.add('connected');
+    } else {
+        btn.innerHTML = '🔑 Connect Claude API';
+        btn.classList.remove('connected');
+    }
+}
+
+async function callClaude(userMessage, systemPrompt) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': claudeApiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 400,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userMessage }]
+        })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.content[0].text;
+}
+
 // ── CSV UPLOAD ────────────────────────────────────────────────────────────────
 const SAMPLE_CSV = `ClaimID,VehicleModel,ModelYear,Component,ClaimDate,ClaimAmount,Region
 C001,Mustang Mach-E,2022,Battery Thermal,2024-01-08,2850,Southeast
@@ -721,45 +832,70 @@ function handleDrop(event) {
     reader.readAsText(file);
 }
 
-function analyzeCSV() {
+async function analyzeCSV() {
     const raw = document.getElementById('csvTextarea').value.trim();
     if (!raw) { alert('Please paste CSV data or load the sample first.'); return; }
 
-    const lines = raw.split('\n').filter(l => l.trim());
+    const lines  = raw.split('\n').filter(l => l.trim());
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     const modelIdx  = headers.indexOf('vehiclemodel');
     const compIdx   = headers.indexOf('component');
     const amtIdx    = headers.indexOf('claimamount');
     const regionIdx = headers.indexOf('region');
 
-    const rows = lines.slice(1).map(l => l.split(','));
-    const totalClaims  = rows.length;
-    const totalCost    = rows.reduce((s, r) => s + (parseFloat(r[amtIdx]) || 0), 0);
-    const models       = [...new Set(rows.map(r => (r[modelIdx]||'').trim()).filter(Boolean))];
-    const regions      = [...new Set(rows.map(r => (r[regionIdx]||'').trim()).filter(Boolean))];
+    const rows       = lines.slice(1).map(l => l.split(','));
+    const totalClaims = rows.length;
+    const totalCost   = rows.reduce((s, r) => s + (parseFloat(r[amtIdx]) || 0), 0);
+    const models      = [...new Set(rows.map(r => (r[modelIdx]||'').trim()).filter(Boolean))];
+    const regions     = [...new Set(rows.map(r => (r[regionIdx]||'').trim()).filter(Boolean))];
+    const compCount   = {};
+    rows.forEach(r => { const c = (r[compIdx]||'').trim(); if (c) compCount[c] = (compCount[c]||0)+1; });
+    const topComp = Object.entries(compCount).sort((a,b)=>b[1]-a[1])[0];
 
-    // Component frequency
-    const compCount = {};
-    rows.forEach(r => {
-        const c = (r[compIdx]||'').trim();
-        if (c) compCount[c] = (compCount[c] || 0) + 1;
-    });
-    const topComp = Object.entries(compCount).sort((a,b) => b[1]-a[1])[0];
+    // Save CSV context for chat
+    loadedCsvContext = `Loaded warranty claims: ${totalClaims} claims, $${totalCost.toFixed(0)} total value, models: ${models.join(', ')}, top issue: ${topComp?.[0]} (${topComp?.[1]} claims). Raw data:\n${raw.substring(0, 2000)}`;
 
     closeModal();
 
-    // Show loaded banner
     const banner = document.getElementById('loadedBanner');
     banner.classList.add('show');
     document.getElementById('loadedText').innerHTML =
         `<strong>${totalClaims.toLocaleString()} claims loaded</strong> &bull;
-         ${models.length} vehicle models &bull;
-         ${regions.length} regions &bull;
-         Total claim value: <strong>$${(totalCost/1000).toFixed(0)}K</strong> &bull;
-         Top issue: <strong>${topComp ? topComp[0] + ' (' + topComp[1] + ' claims)' : 'N/A'}</strong>`;
+         ${models.length} vehicle models &bull; ${regions.length} regions &bull;
+         Total: <strong>$${(totalCost/1000).toFixed(0)}K</strong> &bull;
+         Top issue: <strong>${topComp ? topComp[0]+' ('+topComp[1]+' claims)' : 'N/A'}</strong>
+         ${claudeApiKey ? ' &bull; <span style="color:#86BC25">&#9679; Sending to Claude...</span>' : ''}`;
 
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // If API key present — get real Claude analysis and inject into chat
+    if (claudeApiKey) {
+        try {
+            const systemPrompt = `You are WarrantyIQ, an expert automotive warranty analyst AI.
+Analyze warranty claims data and give a sharp, executive-ready summary.
+Be specific — use real numbers from the data.
+Keep your response under 120 words. Use <strong> tags around key numbers and findings.
+End with one clear recommended action.`;
+
+            const userMsg = `Analyze this warranty claims data and identify the top quality issue, accrual risk, and one recommended action:\n\n${raw.substring(0, 3000)}`;
+
+            const aiReply = await callClaude(userMsg, systemPrompt);
+
+            // Inject into chat
+            const msgs = document.getElementById('chatMsgs');
+            msgs.innerHTML += `<div class="msg"><div class="msg-av ai-av">AI</div><div class="msg-bubble">&#128200; <strong>Live analysis of your uploaded data:</strong><br><br>${aiReply}</div></div>`;
+            msgs.scrollTop = msgs.scrollHeight;
+
+            // Update banner
+            document.getElementById('loadedText').innerHTML =
+                `<strong>${totalClaims.toLocaleString()} claims analyzed by Claude</strong> &bull;
+                 ${models.length} models &bull; ${regions.length} regions &bull;
+                 $${(totalCost/1000).toFixed(0)}K total &bull;
+                 <span style="color:#86BC25">&#10003; AI analysis complete — see chat below</span>`;
+        } catch(e) {
+            document.getElementById('loadedText').innerHTML += ` &bull; <span style="color:#ef4444">API error: ${e.message}</span>`;
+        }
+    }
 }
 
 // ── SCENARIO MODELER ──────────────────────────────────────────────────────────
@@ -789,6 +925,9 @@ function updateScenario(val) {
         if (pill) pill.className = 'issue-pill' + (i < val ? ' resolved' : '');
     }
 }
+
+// Init on load
+updateConnectBtn();
 
 function switchModel() {
     const key = document.getElementById('vehicleModel').value;
@@ -858,7 +997,7 @@ function chipSend(text) {
     sendChat();
 }
 
-function sendChat() {
+async function sendChat() {
     const input = document.getElementById('chatInput');
     const q = input.value.trim();
     if (!q) return;
@@ -871,22 +1010,39 @@ function sendChat() {
     msgs.innerHTML += `<div class="msg" id="${thinkId}"><div class="msg-av ai-av">AI</div><div class="msg-bubble"><div class="thinking-dots"><span></span><span></span><span></span></div></div></div>`;
     msgs.scrollTop = msgs.scrollHeight;
 
-    const delay = 900 + Math.random() * 600;
-    setTimeout(() => {
-        const el = document.getElementById(thinkId);
-        if (el) el.remove();
+    // ── Live Claude API path ──
+    if (claudeApiKey) {
+        try {
+            const systemPrompt = `You are WarrantyIQ, an expert automotive warranty analyst AI built for Deloitte's D.AI Hackathon.
+You help finance and engineering teams understand warranty accrual risk, emerging defects, and supplier recovery opportunities.
+Key facts you know: Ford paid $5.83B in warranty claims in 2024 (SEC 10-K, +22% YoY). NHTSA Recall 23S56: 64,727 Mach-E vehicles, battery contactor overheating. F-150 NHTSA investigation: ~1.3M vehicles, 138 complaints, unexpected transmission downshift.
+${loadedCsvContext ? 'User has uploaded claims data: ' + loadedCsvContext : ''}
+Keep responses under 100 words. Be specific with numbers. Use <strong> tags around key figures. End with one action if relevant.`;
 
+            const reply = await callClaude(q, systemPrompt);
+            document.getElementById(thinkId)?.remove();
+            msgs.innerHTML += `<div class="msg"><div class="msg-av ai-av">AI</div><div class="msg-bubble">${reply}</div></div>`;
+        } catch(e) {
+            document.getElementById(thinkId)?.remove();
+            msgs.innerHTML += `<div class="msg"><div class="msg-av ai-av">AI</div><div class="msg-bubble" style="color:#ef4444">API error: ${e.message}. Check your key in &#128273; Connect Claude API.</div></div>`;
+        }
+        msgs.scrollTop = msgs.scrollHeight;
+        return;
+    }
+
+    // ── Pre-scripted fallback (no API key) ──
+    setTimeout(() => {
+        document.getElementById(thinkId)?.remove();
         const ql = q.toLowerCase();
         let reply = responses.default;
         if (ql.includes('battery') || ql.includes('thermal') || ql.includes('mach')) reply = responses.battery;
         else if (ql.includes('accru') || ql.includes('forecast') || ql.includes('reserve')) reply = responses.accrual;
-        else if (ql.includes('supplier') || ql.includes('recovery') || ql.includes('recover')) reply = responses.supplier;
-        else if (ql.includes('region') || ql.includes('southeast') || ql.includes('west') || ql.includes('northeast')) reply = responses.region;
+        else if (ql.includes('supplier') || ql.includes('recovery')) reply = responses.supplier;
+        else if (ql.includes('region') || ql.includes('southeast') || ql.includes('west')) reply = responses.region;
         else if (ql.includes('transmis')) reply = responses.transmission;
-
         msgs.innerHTML += `<div class="msg"><div class="msg-av ai-av">AI</div><div class="msg-bubble">${reply}</div></div>`;
         msgs.scrollTop = msgs.scrollHeight;
-    }, delay);
+    }, 900 + Math.random() * 600);
 }
 </script>
 </body>
